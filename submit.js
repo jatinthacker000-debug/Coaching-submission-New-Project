@@ -166,30 +166,130 @@ async function loadPDFNotes() {
       }
     }
     
-    // Render CBSE resources
-    const cbseGrid = document.getElementById("cbse-dynamic-grid");
+    // Grade 10 accordion logic
+    document.querySelectorAll('.subject-card').forEach(card => {
+      // Add a click listener to the header
+      const header = card.querySelector('.card-header');
+      if (header && !header.hasAttribute('data-accordion-init')) {
+        header.setAttribute('data-accordion-init', 'true');
+        header.style.cursor = 'pointer';
+        header.innerHTML += `<span class="accordion-icon" style="margin-left: auto; transition: transform 0.2s;">▼</span>`;
+        
+        // Hide all sections initially
+        const sections = card.querySelectorAll('.notes-section');
+        sections.forEach(s => s.classList.add('collapsed'));
+
+        header.addEventListener('click', () => {
+          const icon = header.querySelector('.accordion-icon');
+          const isExpanded = icon.style.transform === 'rotate(180deg)';
+          
+          if (isExpanded) {
+            icon.style.transform = 'rotate(0deg)';
+            sections.forEach(s => s.classList.add('collapsed'));
+          } else {
+            icon.style.transform = 'rotate(180deg)';
+            sections.forEach(s => s.classList.remove('collapsed'));
+          }
+        });
+      }
+    });
+    
+    // Render CBSE resources dynamically
+    const cbseGrid = document.getElementById("cbse-dynamic-container");
     if (cbseGrid) {
       const cbseResources = (notesList || []).filter(n => n.grade === "CBSE");
-      
-      // Sort alphabetically by title
       cbseResources.sort((a, b) => a.title.localeCompare(b.title));
       
       if (cbseResources.length === 0) {
-        cbseGrid.innerHTML = `<p class="muted-text text-center" style="grid-column: 1 / -1;">No CBSE resources added yet.</p>`;
+        cbseGrid.innerHTML = `<p class="muted-text text-center">No CBSE resources added yet.</p>`;
       } else {
         cbseGrid.innerHTML = "";
+        
+        // Parse resources into { Year: { Subject: [resources] } }
+        const cbseTree = {};
+        
         cbseResources.forEach(res => {
-          const a = document.createElement("a");
-          a.href = res.link;
-          a.target = "_blank";
-          a.rel = "noopener noreferrer";
-          a.className = "cbse-card";
-          a.innerHTML = `
-            <span class="cbse-card-icon">📁</span>
-            <h3 class="cbse-card-title">${escapeHtml(res.title)}</h3>
-            <p class="muted-text" style="font-size: 0.85rem; margin: 0;">Drive Folder</p>
-          `;
-          cbseGrid.appendChild(a);
+          // Attempt to extract year from title, e.g., "2026 Geography" or "[2026] Geography"
+          let year = "Other";
+          let subject = "General";
+          let cleanTitle = res.title;
+          
+          const yearMatch = res.title.match(/(202\d)/);
+          if (yearMatch) {
+            year = yearMatch[1];
+          }
+          
+          const titleLower = res.title.toLowerCase();
+          if (titleLower.includes("geography")) subject = "Geography";
+          else if (titleLower.includes("history")) subject = "History";
+          else if (titleLower.includes("economics")) subject = "Economics";
+          else if (titleLower.includes("civics")) subject = "Civics";
+          else if (titleLower.includes("science")) subject = "Science";
+          else if (titleLower.includes("math")) subject = "Mathematics";
+          
+          if (!cbseTree[year]) cbseTree[year] = {};
+          if (!cbseTree[year][subject]) cbseTree[year][subject] = [];
+          
+          cbseTree[year][subject].push(res);
+        });
+        
+        // Render the tree
+        Object.keys(cbseTree).sort().reverse().forEach(year => {
+          const yearSection = document.createElement("div");
+          yearSection.style.marginBottom = "2rem";
+          yearSection.innerHTML = `<h3 style="margin-bottom: 1rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem;">${year}</h3>`;
+          
+          const subjectsGrid = document.createElement("div");
+          subjectsGrid.className = "notes-grid-subjects";
+          
+          Object.keys(cbseTree[year]).sort().forEach(subject => {
+            const subjectCard = document.createElement("div");
+            subjectCard.className = "subject-card";
+            
+            let icon = "📁";
+            if (subject === "Geography") icon = "🌍";
+            else if (subject === "History") icon = "📜";
+            else if (subject === "Economics") icon = "📈";
+            else if (subject === "Civics") icon = "⚖️";
+            
+            subjectCard.innerHTML = `
+              <div class="card-header" style="cursor: pointer; display: flex; align-items: center;">
+                <span class="subject-icon">${icon}</span>
+                <h4>${subject} Resources</h4>
+                <span class="accordion-icon" style="margin-left: auto; transition: transform 0.2s;">▼</span>
+              </div>
+              <div class="notes-section collapsed">
+                <ul class="notes-list">
+                  ${cbseTree[year][subject].map(res => `
+                    <li>
+                      <a href="${escapeHtml(res.link)}" target="_blank" rel="noopener noreferrer" class="note-link">📄 ${escapeHtml(res.title)}</a>
+                    </li>
+                  `).join('')}
+                </ul>
+              </div>
+            `;
+            
+            // Accordion logic for CBSE subject card
+            const header = subjectCard.querySelector('.card-header');
+            const section = subjectCard.querySelector('.notes-section');
+            const accIcon = subjectCard.querySelector('.accordion-icon');
+            
+            header.addEventListener('click', () => {
+              const isExpanded = accIcon.style.transform === 'rotate(180deg)';
+              if (isExpanded) {
+                accIcon.style.transform = 'rotate(0deg)';
+                section.classList.add('collapsed');
+              } else {
+                accIcon.style.transform = 'rotate(180deg)';
+                section.classList.remove('collapsed');
+              }
+            });
+            
+            subjectsGrid.appendChild(subjectCard);
+          });
+          
+          yearSection.appendChild(subjectsGrid);
+          cbseGrid.appendChild(yearSection);
         });
       }
     }
