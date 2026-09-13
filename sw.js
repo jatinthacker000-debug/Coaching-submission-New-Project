@@ -1,4 +1,4 @@
-const CACHE_NAME = "padh-rahi-cache-v1";
+const CACHE_NAME = "padh-rahi-cache-v2";
 const urlsToCache = [
   "/",
   "/index.html",
@@ -33,3 +33,5 @@ self.addEventListener("fetch", event => {
       })
   );
 });
+
+self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.map(key => { if (key !== CACHE_NAME) { return caches.delete(key); } })))); });
